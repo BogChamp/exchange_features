@@ -87,3 +87,109 @@ def numba_calculate_past_returns(trades_avg, delta):
         past_returns[i] = (v[1] / trades_avg[start_index][1] - 1) * 10**5
     
     return past_returns
+
+
+@njit
+def shift(xs, n):
+    e = np.empty_like(xs, np.float64)
+    e[:n] = 0.0
+    e[n:] = xs[:-n]
+    return e
+
+@njit
+def data_autocorrelation(time_series, 
+                         lags, 
+                         time_window):
+    autocorrelations = [[0.0 for i in range(time_series.shape[0])] for j in lags]
+    ts = time_series[:, 0]
+    prices = time_series[:, 1]
+    lag_prices_prod = [np.cumsum(prices * shift(prices, lag)) for lag in lags]
+
+    cum_prices = np.cumsum(prices)
+    cum_prices_2 = np.cumsum(prices**2)
+    
+    start_index = 0
+    delta_ms = time_window * 10**6
+    
+    for i, v in enumerate(ts):
+        while (v - ts[start_index]) > delta_ms:
+            start_index += 1
+        
+        for j, lag in enumerate(lags):
+            n = i - start_index + 1 - lag
+            if n <= 1 or start_index == 0:
+                autocorrelations[j][i] = 0
+            else:
+                sum_x_2 = cum_prices_2[i] - cum_prices_2[start_index + lag - 1]
+                sum_x = cum_prices[i] - cum_prices[start_index + lag - 1]
+                sum_y_2 = cum_prices_2[i - lag] - cum_prices_2[start_index - 1]
+                sum_y = cum_prices[i - lag] - cum_prices[start_index - 1]
+                denominator = (n * sum_x_2 - sum_x**2) * (n * sum_y_2 - sum_y**2)
+                
+                sum_xy = lag_prices_prod[j][i] - lag_prices_prod[j][start_index + lag - 1]
+                numerator = n * sum_xy - sum_x * sum_y
+                
+                if np.isclose(numerator, 0):
+                    autocorrelations[j][i] = 0
+                elif denominator > 0:
+                    autocorrelations[j][i] = np.divide(numerator, np.sqrt(denominator))
+                else:
+                    autocorrelations[j][i] = 0
+             
+    
+    return autocorrelations
+
+
+@njit
+def shift(xs, n):
+    if n == 0:
+        return xs.copy()
+    e = np.empty_like(xs, np.float64)
+    e[:n] = 0.0
+    e[n:] = xs[:-n]
+    return e
+
+@njit
+def parzen_kernel(x):
+    x = abs(x)
+    if x >= 1:
+        return 0
+    elif x >= 0.5:
+        return 2 * (1 - x)**3
+    else:
+        return 1 - 6 * x**2 * (1 - x)
+
+@njit(nogil=True)
+def data_realized_kernel(time_series, 
+                         H, 
+                         time_window,
+                         progress_hook):
+
+    autocorrelations = [0.0 for l in range(time_series.shape[0])]
+    
+    ts = time_series[:, 0]
+    prices = time_series[:, 1]
+    
+    lag_prices_prod = [np.cumsum(prices * shift(prices, lag)) for lag in range(H+1)]
+    kernel_values = [parzen_kernel(k / H) for k in range(1, H + 1)]
+
+    start_index = 0
+    delta_ms = time_window * 10**6
+
+    for i, v in enumerate(ts):
+        while (v - ts[start_index]) > delta_ms:
+            start_index += 1
+        
+        if start_index == 0:
+            autocorrelations[i] = 0
+        else:
+            kernel_range = min(i + 1 - start_index, H)
+            res = lag_prices_prod[0][i] - lag_prices_prod[0][start_index - 1]
+            for j in range(1, kernel_range+1):
+                res += 2 * kernel_values[j - 1] * (lag_prices_prod[j][i] - \
+                                            lag_prices_prod[j][start_index + j - 1])
+            autocorrelations[i] = res
+        
+        progress_hook.update(1)
+    
+    return autocorrelations
