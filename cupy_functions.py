@@ -114,7 +114,7 @@ def cupy_calculate_past_returns(trades, delta):
 
 @cp.fuse()
 def cupy_log_returns(prices):
-    log_prices = cp.log(prices)
+    log_prices = cp.log(cp.array(prices))
     return log_prices[1:] - log_prices[:-1]
 
 @cp.fuse()
