@@ -70,7 +70,7 @@ def compute_improved_imbalance(ob_snapshot):
 def cupy_imb(dataset):
     tuples = [(0, 0.0, 0.0)] * len(dataset)
 
-    for i, row in enumerate(tqdm(dataset)):
+    for i, row in enumerate(dataset):
         tuples[i] = compute_improved_imbalance(row)
 
     return tuples
