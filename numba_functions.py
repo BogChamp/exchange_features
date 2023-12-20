@@ -74,7 +74,26 @@ def numba_imb(dataset):
     return tuples
 
 @njit
-def numba_calculate_past_returns(trades_avg, delta):
+def get_averaged_trades(trades, delta):
+    res = [(0, 0) for _ in range(trades.shape[0])]
+
+    start_index = 0
+    delta_ms = delta * 10**6
+
+    for i, v in enumerate(trades):
+        while (v[0] - trades[start_index][0]) > delta_ms:
+            start_index += 1
+
+        if i > start_index:
+            res[i] = (v[0], np.sum(trades[start_index:i][1] * trades[start_index:i][2]) / np.sum(trades[start_index:i][2]))
+        else:
+            res[i] = (v[0], 0)
+    
+    return res
+
+@njit
+def numba_calculate_past_returns(trades, delta):
+    trades_avg = np.array(get_averaged_trades(trades, delta))
     past_returns = [0.0 for _ in range(trades_avg.shape[0])]
     
     start_index = 0
@@ -84,20 +103,31 @@ def numba_calculate_past_returns(trades_avg, delta):
         while (v[0] - trades_avg[start_index][0]) > delta_ms:
             start_index += 1
 
-        past_returns[i] = (v[1] / trades_avg[start_index][1] - 1) * 10**5
+        
+        if np.isclose(trades_avg[start_index][1], 0):
+            past_returns[i] = 0
+        else:
+            past_returns[i] = (v[1] / trades_avg[start_index][1] - 1) * 10**5
+            
     
     return past_returns
 
+@njit
+def numba_log_returns(prices):
+    log_prices = np.log(prices)
+    return log_prices[1:] - log_prices[:-1]
 
 @njit
 def shift(xs, n):
+    if n == 0:
+        return xs.copy()
     e = np.empty_like(xs, np.float64)
     e[:n] = 0.0
     e[n:] = xs[:-n]
     return e
 
 @njit
-def data_autocorrelation(time_series, 
+def numba_data_autocorrelation(time_series, 
                          lags, 
                          time_window):
     autocorrelations = [[0.0 for i in range(time_series.shape[0])] for j in lags]
@@ -139,16 +169,6 @@ def data_autocorrelation(time_series,
     
     return autocorrelations
 
-
-@njit
-def shift(xs, n):
-    if n == 0:
-        return xs.copy()
-    e = np.empty_like(xs, np.float64)
-    e[:n] = 0.0
-    e[n:] = xs[:-n]
-    return e
-
 @njit
 def parzen_kernel(x):
     x = abs(x)
@@ -159,11 +179,10 @@ def parzen_kernel(x):
     else:
         return 1 - 6 * x**2 * (1 - x)
 
-@njit(nogil=True)
-def data_realized_kernel(time_series, 
+@njit
+def numba_data_realized_kernel(time_series, 
                          H, 
-                         time_window,
-                         progress_hook):
+                         time_window):
 
     autocorrelations = [0.0 for l in range(time_series.shape[0])]
     
@@ -189,7 +208,6 @@ def data_realized_kernel(time_series,
                 res += 2 * kernel_values[j - 1] * (lag_prices_prod[j][i] - \
                                             lag_prices_prod[j][start_index + j - 1])
             autocorrelations[i] = res
-        
-        progress_hook.update(1)
     
     return autocorrelations
+
