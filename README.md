@@ -7,4 +7,4 @@ Results for Order book features
 
 Results for Improved book features
 ------------
-![https://github.com/Viroslav/exchange_features/tree/main/images/simple.png](https://github.com/Viroslav/exchange_features/blob/main/images/simple.png)](https://github.com/Viroslav/exchange_features/blob/main/images/improved.png)
+![https://github.com/Viroslav/exchange_features/tree/main/images/simple.png](https://github.com/Viroslav/exchange_features/blob/main/images/simple.png)
