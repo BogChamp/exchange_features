@@ -96,7 +96,7 @@ def get_averaged_trades(trades, delta):
 @cp.fuse()
 def cupy_calculate_past_returns(trades, delta):
     trades_avg = cp.array(get_averaged_trades(trades, delta))
-    past_returns = [0.0 for _ in range(trades_avg.shape[0])]
+    past_returns = cp.zeros(trades_avg.shape[0])
     
     start_index = 0
     delta_ms = delta * 10**6
@@ -105,13 +105,12 @@ def cupy_calculate_past_returns(trades, delta):
         while (v[0] - trades_avg[start_index][0]) > delta_ms:
             start_index += 1
 
-        
         if cp.isclose(trades_avg[start_index][1], 0):
             past_returns[i] = 0
         else:
             past_returns[i] = (v[1] / trades_avg[start_index][1] - 1) * 10**5
-            
-    return past_returns
+    
+    return past_returns.get() 
 
 @cp.fuse()
 def cupy_log_returns(prices):
