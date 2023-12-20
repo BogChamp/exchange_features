@@ -2,6 +2,10 @@ import numpy as np
 from numba import njit
 
 @njit
+def numba_imb_simple(ticker):
+    return (ticker[:, 1] - ticker[:, 3]) / (ticker[:, 1] + ticker[:, 3]) 
+
+@njit
 def compute_imbalances(ask_prices, ask_amounts, bid_prices, bid_amounts):
     ask_eligible = [ask_amounts[i] for i, v in enumerate(ask_prices) \
                     if v < (ask_prices[0] * 1.05)]

@@ -1,5 +1,8 @@
 import numpy as np
 
+def numpy_imb_simple(ticker):
+    return (ticker[:, 1] - ticker[:, 3]) / (ticker[:, 1] + ticker[:, 3]) 
+
 def compute_imbalances(ask_prices, ask_amounts, bid_prices, bid_amounts):
     # ask_eligible = ask_amounts[ask_prices < (ask_prices[0] * 1.05)]
     # ask_median = np.median(ask_eligible)

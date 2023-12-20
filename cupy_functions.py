@@ -2,6 +2,10 @@ import cupy as cp
 from tqdm import tqdm
 
 @cp.fuse()
+def cupy_imb_simple(ticker):
+    return (ticker[:, 1] - ticker[:, 3]) / (ticker[:, 1] + ticker[:, 3]) 
+
+@cp.fuse()
 def compute_imbalances(ask_prices, ask_amounts, bid_prices, bid_amounts):
     # ask_eligible = ask_amounts[ask_prices < (ask_prices[0] * 1.05)]
     # ask_median = cp.median(ask_eligible)
